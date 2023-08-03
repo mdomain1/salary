@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Load d3.js -->
+    <script src="https://d3js.org/d3.v4.js"></script>
+
+    <!-- Load Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+
+    <style>
+        .chart-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: calc(480vh - 240px);  
+            padding: 170px 0;  
+        }
+    
+        .btn-container {
+            position: absolute;
+            width: 100%;
+            top: 10px;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 10px;
+        }
+    
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            width: 120px;
+            height: 45px;
+            padding: 2px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+<div class="btn-container">
+    <button type="button" class="btn btn-primary" onclick="window.location.href='index.html'">Go to Index</button>
+    <button type="button" class="btn btn-primary" onclick="window.location.href='scene3.html'">Go to Scene3</button>
+</div>
+
+<div class="chart-container" id="chart_area"></div>
+
+<script>
+  var margin = { top: 50, right: 30, bottom: 40, left: 120 },
+    width = 1000 - margin.left - margin.right,
+    fixedHeight = 500 - margin.top - margin.bottom;  
+
+  var colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+
+  var tooltip = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+
+  d3.csv("Salary_Data_Based_country_and_race.csv", function(data) {
+    data.forEach(function(d) {
+      d.Salary = +d.Salary;
+    });
+
+    var jobData = d3.nest()
+      .key(function(d) { return d["Job Title"]; })
+      .rollup(function(v) { 
+        return {
+          count: v.length,
+          total: d3.sum(v, function(d) { return d.Salary; }),
+          avg: d3.mean(v, function(d) { return d.Salary; })
+        };
+      })
+      .entries(data)
+      .map(function(d) {
+        d.value = d.value.avg;
+        return d;
+      });
+
+    createBarChart(jobData, "Average Salary by Job Title");
+  });
+
+  function createBarChart(data, chartTitle) {
+    d3.select("#chart_area").selectAll("*").remove();
+  
+    // Calculate dynamic height based on number of bars
+    var heightPerBar = 15; 
+    var dynamicHeight = data.length * heightPerBar;
+    var height = Math.max(fixedHeight, dynamicHeight);
+      
+    var svg = d3
+        .select("#chart_area")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+  
+    var x = d3
+        .scaleLinear()
+        .domain([0, d3.max(data, function (d) { return d.value; })])
+        .range([0, width]);
+  
+    svg
+        .append("g")
+        .attr("transform", "translate(0," + height + ")")
+        .call(d3.axisBottom(x))
+        .selectAll("text")
+        .attr("transform", "translate(-10,0)rotate(-45)")
+        .style("text-anchor", "end");
+  
+    var y = d3
+        .scaleBand()
+        .range([0, height])
+        .domain(data.map(function (d) { return d.key; }))
+        .padding(0.1);
+    svg.append("g").call(d3.axisLeft(y));
+  
+    svg
+        .selectAll("myRect")
+        .data(data)
+        .enter()
+        .append("rect")
+        .attr("x", x(0))
+        .attr("y", function (d) { return y(d.key); })
+        .attr("width", 0)  
+        .attr("height", y.bandwidth())  
+        .attr("fill", "#69b3a2")
+        .transition()  
+        .duration(2000)  // For 2 seconds
+        .attr("width", function (d) { return x(d.value); });  
+  
+    svg
+        .append("text")
+        .attr("x", width / 2)
+        .attr("y", 0 - margin.top / 2+7)
+        .attr("text-anchor", "middle")
+        .style("font-size", "36px")
+        .attr("height", 200)
+        .text(chartTitle);
+  
+    // Add bars
+    svg.selectAll("myRect")
+      .data(data)
+      .enter()
+      .append("rect")
+      .attr("x", x(0))
+      .attr("y", function(d) { return y(d.key); })
+      .attr("width", function(d) { return x(d.value); })
+      .attr("height", y.bandwidth())  
+      .attr("fill", function(d, i) { return colorScale(i); }) 
+      .on("mouseover", function(d) { 
+        d3.select(this).style("fill", "lightgray"); 
+        tooltip.transition().duration(200).style("opacity", .9);
+        tooltip.html("Job Title: " + d.key + "<br/>" + "Average Salary: " + d.value)
+          .style("left", (d3.event.pageX) + "px")
+          .style("top", (d3.event.pageY - 28) + "px");
+      })
+      .on("mouseout", function(d, i) { 
+        d3.select(this).style("fill", colorScale(i)); 
+        tooltip.transition().duration(500).style("opacity", 0);
+      });
+}
+
+</script>
+<!-- Load Bootstrap JS -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</body>
+</html>
